@@ -1,0 +1,40 @@
+# config.yaml
+channels:                       # plain list of usernames, no @ and no t.me/
+  - varzesh3
+  - khabar_fori
+  # remove a line to stop polling that channel
+
+source:
+  mode: web                     # "web" | "mtproto". Default "web".
+  # --- only used when mode == mtproto ---
+  telegram:
+    api_id: ${TG_API_ID}
+    api_hash: ${TG_API_HASH}
+    session_file: ./tg.session
+
+translate:
+  api_key: ${TRANSLATE_API_KEY}       # required — any OpenAI-compatible chat completions API
+  base_url: ${TRANSLATE_API_BASE_URL} # required — e.g. https://api.your-provider.example.com
+  model: ${TRANSLATE_API_MODEL}       # required — the model name your provider expects
+  batch_size: 15                # posts per API call
+  max_chars_per_post: 4096      # posts longer than this are skipped, not truncated (4096 = Telegram's own message-length cap)
+  target_language: English
+  temperature: 0.2
+
+output:
+  dir: ./public/feeds           # XML written here
+  base_url: https://feeds.example.com/feeds  # used to build <link> for the feed itself
+  per_channel_feeds: true       # write <username>.xml for each channel
+  combined_feed: true           # write all.xml with every channel merged
+  max_items_per_feed: 50        # newest N items kept in the XML
+  include_original: true        # append the Persian original inside the item body
+
+state:
+  path: ./state.db              # sqlite file
+
+runtime:
+  fetch_timeout_seconds: 30
+  translate_timeout_seconds: 120
+  max_new_posts_per_run: 200    # safety valve on first run / backfill
+  max_post_age_days: 7          # ignore posts older than this, every fetch, not just first backfill
+  dry_run: false                # when true: fetch + report, never call the chat API, never write XML
