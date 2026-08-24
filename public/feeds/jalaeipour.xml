@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">
   <title>jalaeipour</title>
   <id>https://oshintanakura.github.io/iran-rss-feed/feeds/jalaeipour.xml</id>
-  <updated>2026-08-23T19:04:27Z</updated>
+  <updated>2026-08-24T03:34:34Z</updated>
   <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/jalaeipour.xml"></link>
+  <entry>
+    <title>#Book_Suggestion:https://www.ricac.ac.ir/news/5891@jalaeipour</title>
+    <updated>2026-08-23T20:31:54Z</updated>
+    <id>https://t.me/jalaeipour/17684</id>
+    <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/jalaeipour/17684.html" rel="alternate"></link>
+    <summary type="html">&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @jalaeipour&lt;/p&gt;#Book_Suggestion:https://www.ricac.ac.ir/news/5891@jalaeipour</summary>
+    <author>
+      <name>jalaeipour</name>
+    </author>
+  </entry>
   <entry>
     <title>Education and health in the employment structure&#xA;In the European Union, the…</title>
     <updated>2026-08-20T10:57:09Z</updated>
