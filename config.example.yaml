@@ -26,7 +26,8 @@ output:
   base_url: https://feeds.example.com/feeds  # used to build <link> for the feed itself
   per_channel_feeds: true       # write <username>.xml for each channel
   combined_feed: true           # write all.xml with every channel merged
-  max_items_per_feed: 50        # newest N items kept in the XML
+  max_feed_age_days: 10         # every translated post newer than this stays in its feed, no matter how many that is
+  max_items_per_feed: 2000      # hard ceiling on feed size, purely against a pathological runaway — should never actually bind
   include_original: true        # append the Persian original inside the item body
 
 state:

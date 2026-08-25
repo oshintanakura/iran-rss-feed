@@ -131,12 +131,67 @@ func TestRecent_ExcludesFailedAndSkippedTooLong(t *testing.T) {
 		t.Fatalf("SaveSkippedTooLong: %v", err)
 	}
 
-	items, err := s.Recent(ctx, "c", 10)
+	items, err := s.Recent(ctx, "c", 10, 100)
 	if err != nil {
 		t.Fatalf("Recent: %v", err)
 	}
 	if len(items) != 1 || items[0].MessageID != 1 {
 		t.Fatalf("want only the translated post in the feed, got %+v", items)
+	}
+}
+
+func TestRecent_IncludesEveryPostWithinTheAgeWindowRegardlessOfCount(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	// 15 posts, all within the last 10 days — more than a small
+	// count-based cap would have allowed through under the old
+	// (buggy) semantics, where "safetyCap" was the real limit.
+	for i := int64(1); i <= 15; i++ {
+		p := source.Post{
+			Channel:   "c",
+			MessageID: i,
+			Text:      "post",
+			URL:       "https://t.me/c/1",
+			PostedAt:  now.Add(-time.Duration(i) * time.Hour), // spread over the last 15 hours
+		}
+		if err := s.SaveTranslated(ctx, p, "post (en)"); err != nil {
+			t.Fatalf("SaveTranslated(%d): %v", i, err)
+		}
+	}
+
+	// A post from 20 days ago must NOT appear (outside the 10-day window).
+	old := source.Post{Channel: "c", MessageID: 100, Text: "old", URL: "https://t.me/c/100", PostedAt: now.AddDate(0, 0, -20)}
+	if err := s.SaveTranslated(ctx, old, "old (en)"); err != nil {
+		t.Fatalf("SaveTranslated(old): %v", err)
+	}
+
+	// safetyCap (5) is deliberately smaller than the 15 in-window posts,
+	// to prove the age window — not the count — is what's enforced.
+	items, err := s.Recent(ctx, "c", 10, 5)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(items) != 5 {
+		t.Fatalf("safetyCap should still bound the result when it's genuinely smaller than the window's contents, got %d items", len(items))
+	}
+
+	// With a safetyCap comfortably above the in-window count (as the
+	// real config always sets it), every one of the 15 must come back —
+	// none silently dropped for being "past #N" the way a pure count
+	// limit would have done.
+	items, err = s.Recent(ctx, "c", 10, 100)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(items) != 15 {
+		t.Fatalf("want all 15 posts within the 10-day window, got %d", len(items))
+	}
+	for _, it := range items {
+		if it.MessageID == 100 {
+			t.Fatalf("post from 20 days ago should be outside the 10-day window, but was included")
+		}
 	}
 }
 
@@ -152,7 +207,7 @@ func TestSave_IsIdempotent(t *testing.T) {
 		t.Fatalf("SaveTranslated (2nd): %v", err)
 	}
 
-	items, err := s.RecentAll(ctx, 10)
+	items, err := s.RecentAll(ctx, 10, 100)
 	if err != nil {
 		t.Fatalf("RecentAll: %v", err)
 	}

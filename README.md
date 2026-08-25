@@ -103,7 +103,7 @@ one standalone HTML page per translated post at
 item's `<link>` points to, so clicking a post opens the translation
 itself instead of the original Telegram channel. Post pages are never
 pruned; they stay as a permanent archive even after a post ages out of
-the feed's `max_items_per_feed` window.
+the feed's `max_feed_age_days` window.
 
 [.github/workflows/update.yml](.github/workflows/update.yml) uploads the
 `public` directory as a Pages artifact and deploys it with
@@ -149,6 +149,12 @@ re-translate, and re-save it.
   dropped before translation, on every run, not just the first one for a
   newly-added channel. Keeps a rarely-posting or just-added channel from
   ever backfilling months-old content.
+- `output.max_feed_age_days` (default 10) — every translated post newer
+  than this stays in its feed (and in the combined `all.xml`), no matter
+  how many that ends up being. `output.max_items_per_feed` (default
+  2000) is a hard ceiling on top of that, only there to stop a
+  pathological runaway — at any realistic posting volume it never
+  actually trims the age window.
 - `translate.max_chars_per_post` (default 4096) — matches Telegram's own
   hard limit on a single message's length, so it's a safety net rather
   than something you'd expect to actually trigger; posts over it are

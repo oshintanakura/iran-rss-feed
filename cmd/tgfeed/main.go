@@ -286,7 +286,7 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 
 	if cfg.Output.PerChannelFeeds {
 		for _, ch := range channels {
-			items, err := st.Recent(ctx, ch, cfg.Output.MaxItemsPerFeed)
+			items, err := st.Recent(ctx, ch, cfg.Output.MaxFeedAgeDays, cfg.Output.MaxItemsPerFeed)
 			if err != nil {
 				logger.Error("reading recent posts failed", "channel", ch, "error", err)
 				continue
@@ -298,7 +298,7 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 	}
 
 	if cfg.Output.CombinedFeed {
-		items, err := st.RecentAll(ctx, cfg.Output.MaxItemsPerFeed)
+		items, err := st.RecentAll(ctx, cfg.Output.MaxFeedAgeDays, cfg.Output.MaxItemsPerFeed)
 		if err != nil {
 			logger.Error("reading combined recent posts failed", "error", err)
 		} else if err := feed.Write(cfg.Output.Dir, "all", "All channels", items, opts); err != nil {

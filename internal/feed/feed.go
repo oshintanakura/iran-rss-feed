@@ -69,7 +69,14 @@ func Write(dir, name, title string, items []store.Item, opts Options) error {
 
 func itemFor(it store.Item, opts Options) *feeds.Item {
 	return &feeds.Item{
-		Title: titleFor(it.Translated, it.MessageID),
+		// "[channel] title": the Atom <author> below is the semantically
+		// correct place for the source, but plenty of feed readers (most
+		// visibly on mobile) only ever render an item's title and the
+		// feed's own name on a list card, never the per-item author —
+		// which is useless for a combined feed where every card would
+		// otherwise just say "All channels". Prefixing the title is the
+		// one thing guaranteed to show, everywhere.
+		Title: fmt.Sprintf("[%s] %s", it.Channel, titleFor(it.Translated, it.MessageID)),
 		// Link points at this post's own standalone page, not the
 		// Telegram post — readers should stay on the translated text
 		// instead of jumping to Telegram. Id still pins to the original

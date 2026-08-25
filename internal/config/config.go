@@ -37,7 +37,8 @@ type Output struct {
 	BaseURL         string `yaml:"base_url"`
 	PerChannelFeeds bool   `yaml:"per_channel_feeds"`
 	CombinedFeed    bool   `yaml:"combined_feed"`
-	MaxItemsPerFeed int    `yaml:"max_items_per_feed"`
+	MaxFeedAgeDays  int    `yaml:"max_feed_age_days"`  // every translated post newer than this is kept in its feed, no matter how many that is
+	MaxItemsPerFeed int    `yaml:"max_items_per_feed"` // hard ceiling on feed size, purely against a pathological runaway — should never actually bind
 	IncludeOriginal bool   `yaml:"include_original"`
 }
 
@@ -121,8 +122,15 @@ func applyDefaults(cfg *Config) {
 	if cfg.Output.Dir == "" {
 		cfg.Output.Dir = "./public/feeds"
 	}
+	if cfg.Output.MaxFeedAgeDays <= 0 {
+		cfg.Output.MaxFeedAgeDays = 10
+	}
 	if cfg.Output.MaxItemsPerFeed <= 0 {
-		cfg.Output.MaxItemsPerFeed = 50
+		// Comfortably above any realistic volume within max_feed_age_days
+		// across every configured channel, so it never actually trims the
+		// age window in practice — it's a circuit breaker, not the real
+		// limit.
+		cfg.Output.MaxItemsPerFeed = 2000
 	}
 	if cfg.State.Path == "" {
 		cfg.State.Path = "./state.db"

@@ -149,17 +149,23 @@ func (s *Store) save(ctx context.Context, p source.Post, translated sql.NullStri
 	return nil
 }
 
-// Recent returns the newest limit translated items for one channel,
-// newest first. Rows with translated IS NULL or the "too long" sentinel
-// are excluded so a feed never carries untranslated Persian.
-func (s *Store) Recent(ctx context.Context, channel string, limit int) ([]Item, error) {
+// Recent returns every translated item for one channel posted within the
+// last maxAgeDays, newest first — never fewer than that, regardless of
+// count. safetyCap is a hard ceiling on rows returned, purely to bound a
+// pathological runaway (a channel somehow producing thousands of posts
+// in the window); at any realistic volume it never actually binds, so
+// the age window is the real constraint, not the count. Rows with
+// translated IS NULL or the "too long" sentinel are excluded so a feed
+// never carries untranslated Persian.
+func (s *Store) Recent(ctx context.Context, channel string, maxAgeDays, safetyCap int) ([]Item, error) {
+	cutoff := time.Now().UTC().AddDate(0, 0, -maxAgeDays).Unix()
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT channel, message_id, url, posted_at, original, translated
 		FROM posts
-		WHERE channel = ? AND translated IS NOT NULL AND translated != ?
+		WHERE channel = ? AND translated IS NOT NULL AND translated != ? AND posted_at >= ?
 		ORDER BY posted_at DESC
 		LIMIT ?
-	`, channel, SkippedTooLong, limit)
+	`, channel, SkippedTooLong, cutoff, safetyCap)
 	if err != nil {
 		return nil, fmt.Errorf("querying recent posts for %s: %w", channel, err)
 	}
@@ -167,16 +173,16 @@ func (s *Store) Recent(ctx context.Context, channel string, limit int) ([]Item, 
 	return scanItems(rows)
 }
 
-// RecentAll returns the newest limit translated items across every
-// channel, newest first.
-func (s *Store) RecentAll(ctx context.Context, limit int) ([]Item, error) {
+// RecentAll is Recent, across every channel.
+func (s *Store) RecentAll(ctx context.Context, maxAgeDays, safetyCap int) ([]Item, error) {
+	cutoff := time.Now().UTC().AddDate(0, 0, -maxAgeDays).Unix()
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT channel, message_id, url, posted_at, original, translated
 		FROM posts
-		WHERE translated IS NOT NULL AND translated != ?
+		WHERE translated IS NOT NULL AND translated != ? AND posted_at >= ?
 		ORDER BY posted_at DESC
 		LIMIT ?
-	`, SkippedTooLong, limit)
+	`, SkippedTooLong, cutoff, safetyCap)
 	if err != nil {
 		return nil, fmt.Errorf("querying recent posts: %w", err)
 	}
