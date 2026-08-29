@@ -33,6 +33,7 @@ channels:                       # plain list of usernames, no @ and no t.me/
   - mmaljoo
   - Soroushdabbagh_Official
   - VahidOnline
+  - sahandiranmehr
   # Channels above marked "web preview disabled" are real, valid
   # usernames, but mode: web can't fetch them — see "A channel isn't
   # producing any posts" in the README. Left in the list so they pick
