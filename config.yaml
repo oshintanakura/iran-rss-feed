@@ -61,7 +61,7 @@ output:
   base_url: https://oshintanakura.github.io/iran-rss-feed/feeds  # your GitHub Pages URL
   per_channel_feeds: true       # write <username>.xml for each channel
   combined_feed: true           # write all.xml with every channel merged
-  max_feed_age_days: 10         # every translated post newer than this stays in its feed, no matter how many that is
+  max_feed_age_days: 15         # every translated post newer than this stays in its feed, no matter how many that is
   max_items_per_feed: 2000      # hard ceiling on feed size, purely against a pathological runaway — should never actually bind
   include_original: false       # append the Persian original inside the item body
 
