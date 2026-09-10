@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">
   <title>hesmashena</title>
   <id>https://oshintanakura.github.io/iran-rss-feed/feeds/hesmashena.xml</id>
-  <updated>2026-09-10T06:15:42Z</updated>
+  <updated>2026-09-10T12:15:28Z</updated>
   <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/hesmashena.xml"></link>
+  <entry>
+    <title>[hesmashena] https://t.me/IranStrategicNarratives</title>
+    <updated>2026-09-10T08:02:51Z</updated>
+    <id>https://t.me/hesmashena/4188</id>
+    <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/hesmashena/4188.html" rel="alternate"></link>
+    <summary type="html">&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @hesmashena&lt;/p&gt;https://t.me/IranStrategicNarratives</summary>
+    <author>
+      <name>hesmashena</name>
+    </author>
+  </entry>
   <entry>
     <title>[hesmashena] https://www.khabaronline.ir/news/2269965/%D8%A7%D8%B9%D8%AA%D8%AF%D8%A7%D9%84-%D…</title>
     <updated>2026-09-05T06:58:05Z</updated>
