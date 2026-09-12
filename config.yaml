@@ -2,41 +2,44 @@
 # the chat API's key/base URL/model all come from env vars/GH secrets at
 # load time). The GitHub Actions workflow reads this exact file.
 
-channels:                       # plain list of usernames, no @ and no t.me/
-  - darvishnameh
-  - yaser_arab57
-  - ahmadzeidabad
-  - mahdi_mohammadi61
-  - RezaEjtehadi
-  - mostafamalekian
-  - javadimr
-  - sherwin_vakili            # web preview disabled on this channel, see note below
-  - miladdokhanchi
-  - masoudnili                # web preview disabled on this channel, see note below
-  - vahidkarimipour
-  - I_D_Network
-  - Renani_Mohsen
-  - fazelimohammadir
-  - sharenovate
-  - ermiadotir
-  - bamotamem
-  - jafarshiralinia
-  - mohsenhesammazaheri
-  - jalaeipour
-  - bijanabdolkarimi
-  - FarnazSeifi
-  - hesmashena
-  - gpttir
-  - irandarhalegozar          # web preview disabled on this channel, see note below
-  - abdiabbas
-  - Mostafa_Najafii           # web preview disabled on this channel, see note below
-  - mmaljoo
-  - Soroushdabbagh_Official
-  - VahidOnline
-  - sahandiranmehr
-  - iranstrategicnarratives
-  - sadegh_alhosseini
-  - Ghabl_enghelab
+channels:                       # usernames, no @ and no t.me/, each with a category
+  - { name: darvishnameh, category: analysis }
+  - { name: yaser_arab57, category: analysis }
+  - { name: ahmadzeidabad, category: analysis }
+  - { name: mahdi_mohammadi61, category: analysis }
+  - { name: RezaEjtehadi, category: analysis }
+  - { name: mostafamalekian, category: analysis }
+  - { name: javadimr, category: analysis }
+  - { name: sherwin_vakili, category: analysis }  # web preview disabled on this channel, see note below
+  - { name: miladdokhanchi, category: analysis }
+  - { name: masoudnili, category: analysis }      # web preview disabled on this channel, see note below
+  - { name: vahidkarimipour, category: analysis }
+  - { name: I_D_Network, category: analysis }
+  - { name: Renani_Mohsen, category: analysis }
+  - { name: fazelimohammadir, category: analysis }
+  - { name: sharenovate, category: analysis }
+  - { name: ermiadotir, category: analysis }
+  - { name: bamotamem, category: analysis }
+  - { name: jafarshiralinia, category: analysis }
+  - { name: mohsenhesammazaheri, category: analysis }
+  - { name: jalaeipour, category: analysis }
+  - { name: bijanabdolkarimi, category: analysis }
+  - { name: FarnazSeifi, category: analysis }
+  - { name: hesmashena, category: analysis }
+  - { name: gpttir, category: analysis }
+  - { name: irandarhalegozar, category: analysis }  # web preview disabled on this channel, see note below
+  - { name: abdiabbas, category: analysis }
+  - { name: Mostafa_Najafii, category: analysis }   # web preview disabled on this channel, see note below
+  - { name: mmaljoo, category: analysis }
+  - { name: Soroushdabbagh_Official, category: analysis }
+  - { name: VahidOnline, category: news }
+  - { name: sahandiranmehr, category: analysis }
+  - { name: iranstrategicnarratives, category: analysis }
+  - { name: sadegh_alhosseini, category: analysis }
+  - { name: Ghabl_enghelab, category: analysis }
+  - { name: aqvalanam, category: analysis }
+  - { name: mamlekate, category: news }
+  - { name: javadmogoei, category: analysis }
   # Channels above marked "web preview disabled" are real, valid
   # usernames, but mode: web can't fetch them — see "A channel isn't
   # producing any posts" in the README. Left in the list so they pick

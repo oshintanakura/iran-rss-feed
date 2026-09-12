@@ -70,23 +70,25 @@ var sitemapTmpl = template.Must(template.New("sitemap").Parse(`<?xml version="1.
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>{{.SiteURL}}/</loc></url>
   <url><loc>{{.SiteURL}}/feeds/all.xml</loc></url>
-{{range .Channels}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
+{{range .Categories}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
+{{end}}{{range .Channels}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
 {{end}}{{range .PostURLs}}  <url><loc>{{.}}</loc></url>
 {{end}}</urlset>
 `))
 
 type sitemapData struct {
-	SiteURL  string
-	Channels []string
-	PostURLs []string
+	SiteURL   string
+	Channels  []string
+	Categories []string
+	PostURLs  []string
 }
 
 // WriteSitemap writes a sitemap.xml listing the homepage, the combined
-// feed, every per-channel feed, and every standalone post page. Post
-// pages are listed directly so crawlers have a discovery path that
-// doesn't depend on following XML feeds. siteURL must be non-empty; the
-// sitemap is meaningless without it.
-func WriteSitemap(publicDir, siteURL string, channels []string, posts []store.Item) error {
+// feed, every category and per-channel feed, and every standalone post
+// page. Post pages are listed directly so crawlers have a discovery
+// path that doesn't depend on following XML feeds. siteURL must be
+// non-empty; the sitemap is meaningless without it.
+func WriteSitemap(publicDir, siteURL string, channels, categories []string, posts []store.Item) error {
 	if siteURL == "" {
 		return nil
 	}
@@ -108,7 +110,7 @@ func WriteSitemap(publicDir, siteURL string, channels []string, posts []store.It
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", tmp, err)
 	}
-	data := sitemapData{SiteURL: siteURL, Channels: sortedChannels(channels), PostURLs: postURLs}
+	data := sitemapData{SiteURL: siteURL, Channels: sortedChannels(channels), Categories: sortedChannels(categories), PostURLs: postURLs}
 	if err := sitemapTmpl.Execute(f, data); err != nil {
 		f.Close()
 		return fmt.Errorf("rendering %s: %w", final, err)

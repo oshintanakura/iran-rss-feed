@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -54,12 +55,19 @@ type Runtime struct {
 	DryRun                  bool `yaml:"dry_run"`
 }
 
+// Channel is one source channel: its Telegram username (no @, no
+// t.me/) and the category its posts fall under for the merged category
+// feeds.
+type Channel struct {
+	Name     string `yaml:"name"`
+	Category string `yaml:"category"` // defaults to "analysis"
+}
+
 // Config is the root of config.yaml.
 type Config struct {
-	// Channels is a plain list of usernames (no @, no t.me/), e.g.
-	// ["varzesh3", "khabar_fori"]. To stop polling a channel, remove its
-	// line from the list.
-	Channels  []string  `yaml:"channels"`
+	// Channels lists the channels to poll, each with its category.
+	// To stop polling a channel, remove its line from the list.
+	Channels  []Channel `yaml:"channels"`
 	Source    Source    `yaml:"source"`
 	Translate Translate `yaml:"translate"`
 	Output    Output    `yaml:"output"`
@@ -68,6 +76,36 @@ type Config struct {
 }
 
 var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+
+// categoryNamePattern keeps category names safe as feed filenames.
+var categoryNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+
+// defaultCategory is the category channels fall into when their config
+// line doesn't say otherwise.
+const defaultCategory = "analysis"
+
+// ChannelNames returns the configured channel names, in config order.
+func (cfg *Config) ChannelNames() []string {
+	names := make([]string, len(cfg.Channels))
+	for i, c := range cfg.Channels {
+		names[i] = c.Name
+	}
+	return names
+}
+
+// Categories returns the distinct channel categories present, sorted.
+func (cfg *Config) Categories() []string {
+	seen := make(map[string]bool, len(cfg.Channels))
+	var cats []string
+	for _, c := range cfg.Channels {
+		if !seen[c.Category] {
+			seen[c.Category] = true
+			cats = append(cats, c.Category)
+		}
+	}
+	sort.Strings(cats)
+	return cats
+}
 
 // expandEnv replaces ${VAR_NAME} with the value of the environment
 // variable VAR_NAME. Unset variables expand to an empty string, exactly
@@ -104,6 +142,11 @@ func Load(path string) (*Config, error) {
 }
 
 func applyDefaults(cfg *Config) {
+	for i := range cfg.Channels {
+		if cfg.Channels[i].Category == "" {
+			cfg.Channels[i].Category = defaultCategory
+		}
+	}
 	if cfg.Source.Mode == "" {
 		cfg.Source.Mode = "web"
 	}
@@ -151,13 +194,21 @@ func applyDefaults(cfg *Config) {
 
 // Validate performs the fatal startup checks the spec requires.
 func (cfg *Config) Validate() error {
-	for _, c := range cfg.Channels {
-		if strings.TrimSpace(c) == "" {
-			return fmt.Errorf("config: 'channels' contains a blank entry")
-		}
-	}
 	if len(cfg.Channels) == 0 {
-		return fmt.Errorf("config: no channels — add at least one username under 'channels'")
+		return fmt.Errorf("config: no channels — add at least one entry under 'channels'")
+	}
+	seen := make(map[string]bool, len(cfg.Channels))
+	for _, c := range cfg.Channels {
+		if strings.TrimSpace(c.Name) == "" {
+			return fmt.Errorf("config: 'channels' contains an entry with a blank name")
+		}
+		if seen[c.Name] {
+			return fmt.Errorf("config: channel %q is listed more than once", c.Name)
+		}
+		seen[c.Name] = true
+		if !categoryNamePattern.MatchString(c.Category) {
+			return fmt.Errorf("config: channel %q has category %q — category names must match %s", c.Name, c.Category, categoryNamePattern)
+		}
 	}
 
 	if cfg.Translate.APIKey == "" {

@@ -1,8 +1,9 @@
 # config.yaml
-channels:                       # plain list of usernames, no @ and no t.me/
-  - varzesh3
-  - khabar_fori
-  # remove a line to stop polling that channel
+channels:                       # usernames, no @ and no t.me/, each with a category
+  - { name: varzesh3, category: analysis }
+  - { name: khabar_fori, category: news }
+  # remove a line to stop polling that channel; category defaults to "analysis"
+  # each distinct category gets its own merged feed: <category>.xml
 
 source:
   mode: web                     # "web" | "mtproto". Default "web".

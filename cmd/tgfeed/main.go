@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ func run() int {
 		cfg.Runtime.DryRun = true
 	}
 
-	channels := cfg.Channels
+	channels := cfg.ChannelNames()
 	if *onlyChannel != "" && !slices.Contains(channels, *onlyChannel) {
 		logger.Error("startup failed", "error", fmt.Sprintf("--channel %q is not in config", *onlyChannel))
 		return 1
@@ -306,6 +307,15 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 		}
 	}
 
+	// One merged feed per category (e.g. news.xml, analysis.xml).
+	// Skipped when every channel is in the default "analysis" category,
+	// since that would just duplicate all.xml.
+	categories := []string{}
+	cats := cfg.Categories()
+	if len(cats) > 0 && (len(cats) > 1 || cats[0] != "analysis") {
+		categories = writeCategoryFeeds(ctx, cfg, st, logger)
+	}
+
 	// One standalone page per translated post ever stored (not just what's
 	// in the feed window), so feed item links have somewhere permanent to
 	// point. Never pruned — old pages just stay as an archive.
@@ -324,13 +334,50 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 	publicDir := filepath.Dir(cfg.Output.Dir)
 	siteURL := strings.TrimSuffix(strings.TrimRight(cfg.Output.BaseURL, "/"), "/feeds")
 
-	if err := feed.WriteHomepage(publicDir, siteURL, channels); err != nil {
+	if err := feed.WriteHomepage(publicDir, siteURL, channels, categories); err != nil {
 		logger.Error("writing homepage failed", "error", err)
 	}
 	if err := feed.WriteRobotsTxt(publicDir, siteURL); err != nil {
 		logger.Error("writing robots.txt failed", "error", err)
 	}
-	if err := feed.WriteSitemap(publicDir, siteURL, channels, allItems); err != nil {
+	if err := feed.WriteSitemap(publicDir, siteURL, channels, categories, allItems); err != nil {
 		logger.Error("writing sitemap.xml failed", "error", err)
 	}
+}
+
+// writeCategoryFeeds merges each category's channels into one feed and
+// writes it as <category>.xml, returning the category names written,
+// sorted. Items across channels are merged newest-first.
+func writeCategoryFeeds(ctx context.Context, cfg *config.Config, st *store.Store, logger *slog.Logger) []string {
+	opts := feed.Options{BaseURL: cfg.Output.BaseURL, IncludeOriginal: cfg.Output.IncludeOriginal}
+
+	byCategory := make(map[string][]string)
+	for _, ch := range cfg.Channels {
+		byCategory[ch.Category] = append(byCategory[ch.Category], ch.Name)
+	}
+	categories := make([]string, 0, len(byCategory))
+	for c := range byCategory {
+		categories = append(categories, c)
+	}
+	sort.Strings(categories)
+
+	for _, cat := range categories {
+		var items []store.Item
+		for _, ch := range byCategory[cat] {
+			chItems, err := st.Recent(ctx, ch, cfg.Output.MaxFeedAgeDays, cfg.Output.MaxItemsPerFeed)
+			if err != nil {
+				logger.Error("reading recent posts failed", "channel", ch, "category", cat, "error", err)
+				continue
+			}
+			items = append(items, chItems...)
+		}
+		sort.Slice(items, func(i, j int) bool { return items[i].PostedAt.After(items[j].PostedAt) })
+		if len(items) > cfg.Output.MaxItemsPerFeed {
+			items = items[:cfg.Output.MaxItemsPerFeed]
+		}
+		if err := feed.Write(cfg.Output.Dir, cat, "Category: "+strings.ToUpper(cat[:1])+cat[1:], items, opts); err != nil {
+			logger.Error("writing category feed failed", "category", cat, "error", err)
+		}
+	}
+	return categories
 }

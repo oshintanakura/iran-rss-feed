@@ -2,14 +2,21 @@ package feed
 
 import (
 	"fmt"
+	"html"
 	"html/template"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 const siteDescription = "An independent English digest of public Telegram posts from Iranian political figures and commentators, machine-translated and updated every few hours."
+
+// HomepagePostsPerChannel caps how many posts the homepage lists per
+// channel, keeping the page a light index rather than a full archive.
+const HomepagePostsPerChannel = 10
 
 var homepageTmpl = template.Must(template.New("homepage").Parse(`<!doctype html>
 <html lang="en">
@@ -57,8 +64,12 @@ var homepageTmpl = template.Must(template.New("homepage").Parse(`<!doctype html>
   }
   h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
   h2 { font-size: 1.1rem; margin-top: 2rem; }
+  h3 { font-size: 1.05rem; margin: 1.25rem 0 0.25rem; }
   p { margin: 1.2rem 0; }
   .disclaimer { color: var(--muted); font-size: 0.95rem; }
+  ul.posts { list-style: none; padding: 0; margin: 0; }
+  ul.posts li { margin-bottom: 0.2rem; }
+  .post-date { color: var(--muted); font-size: 0.85rem; margin-right: 0.5rem; }
   .feed-link {
     display: inline-block;
     margin-top: 0.5rem;
@@ -96,9 +107,18 @@ is simply a tool to help follow their public points of view.</p>
 
 <p><a class="feed-link" href="feeds/all.xml">RSS feed</a></p>
 
-<h2>Channels included</h2>
+<h2>Latest posts by channel</h2>
+{{range .ChannelSections}}{{if .Posts}}
+<h3>@{{.Name}}</h3>
+<ul class="posts">
+{{range .Posts}}  <li><span class="post-date">{{.Date}}</span><a href="{{.URL}}">{{.Title}}</a></li>
+{{end}}</ul>
+{{end}}{{end}}
+
+<h2>RSS feeds</h2>
 <ol class="channels">
-{{range .Channels}}  <li><a href="feeds/{{.}}.xml">{{.}}</a></li>
+{{range .Categories}}  <li><a href="feeds/{{.}}.xml">{{.}} (category)</a></li>
+{{end}}{{range .Channels}}  <li><a href="feeds/{{.}}.xml">{{.}}</a></li>
 {{end}}</ol>
 
 <hr>
@@ -109,9 +129,25 @@ is simply a tool to help follow their public points of view.</p>
 `))
 
 type homepageData struct {
-	Description string
-	SiteURL     string
-	Channels    []string
+	Description     string
+	SiteURL         string
+	Channels        []string
+	Categories      []string
+	ChannelSections []homepageChannel
+}
+
+// homepageChannel is one writer's section on the homepage: their latest
+// few posts as plain HTML links, so crawlers and readers have a real
+// HTML path into the post pages (not just the RSS feeds).
+type homepageChannel struct {
+	Name  string
+	Posts []homepagePost
+}
+
+type homepagePost struct {
+	Date  string
+	Title string
+	URL   string
 }
 
 func sortedChannels(channels []string) []string {
@@ -124,17 +160,28 @@ func sortedChannels(channels []string) []string {
 }
 
 // WriteHomepage renders the static homepage into publicDir/index.html,
-// atomically (temp file + rename). The channel list is always
-// regenerated from the current config, alphabetically, so it never goes
-// stale — unlike the rest of the page's hand-written copy, which lives
-// only in this template, not read from anywhere at runtime. siteURL is
-// the site's root (no trailing slash, no "/feeds"); pass "" to omit the
-// canonical/Open Graph tags that need an absolute URL.
-func WriteHomepage(publicDir, siteURL string, channels []string) error {
+// atomically (temp file + rename). The channel list and the per-channel
+// latest-post links are derived from the post pages already written to
+// publicDir/feeds/posts, so they never go stale — unlike the rest of
+// the page's hand-written copy, which lives only in this template, not
+// read from anywhere at runtime. siteURL is the site's root (no
+// trailing slash, no "/feeds"); pass "" to omit the canonical/Open
+// Graph tags that need an absolute URL. categories are the extra merged
+// category feeds to list under "RSS feeds".
+func WriteHomepage(publicDir, siteURL string, channels, categories []string) error {
+	postsDir := filepath.Join(publicDir, "feeds", "posts")
+
+	sections := make([]homepageChannel, 0, len(channels))
+	for _, ch := range sortedChannels(channels) {
+		sections = append(sections, homepageChannel{Name: ch, Posts: latestPostsFrom(postsDir, ch, siteURL)})
+	}
+
 	data := homepageData{
-		Description: siteDescription,
-		SiteURL:     strings.TrimRight(siteURL, "/"),
-		Channels:    sortedChannels(channels),
+		Description:     siteDescription,
+		SiteURL:         strings.TrimRight(siteURL, "/"),
+		Channels:        sortedChannels(channels),
+		Categories:      sortedChannels(categories),
+		ChannelSections: sections,
 	}
 
 	if err := os.MkdirAll(publicDir, 0o755); err != nil {
@@ -158,4 +205,69 @@ func WriteHomepage(publicDir, siteURL string, channels []string) error {
 		return fmt.Errorf("renaming %s to %s: %w", tmp, final, err)
 	}
 	return nil
+}
+
+var (
+	postTitleRe = regexp.MustCompile(`(?s)<title>\s*(.*?)\s*</title>`)
+	postDateRe  = regexp.MustCompile(`&middot; (\d{4}-\d{2}-\d{2})`)
+)
+
+// latestPostsFrom lists the newest post pages on disk for one channel.
+// Message IDs increase with time, so the highest numeric filenames are
+// the newest posts. Title and date are pulled from each page's own
+// <title> and meta line; when the title is missing, the date alone is
+// used as the link text.
+func latestPostsFrom(postsDir, channel, siteURL string) []homepagePost {
+	dir := filepath.Join(postsDir, channel)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	ids := make([]int64, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		id, err := strconv.ParseInt(strings.TrimSuffix(e.Name(), ".html"), 10, 64)
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] > ids[j] })
+	if len(ids) > HomepagePostsPerChannel {
+		ids = ids[:HomepagePostsPerChannel]
+	}
+
+	posts := make([]homepagePost, 0, len(ids))
+	for _, id := range ids {
+		name := strconv.FormatInt(id, 10) + ".html"
+		content, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+
+		date := ""
+		if m := postDateRe.FindSubmatch(content); m != nil {
+			date = string(m[1])
+		}
+		title := ""
+		if m := postTitleRe.FindSubmatch(content); m != nil {
+			title = html.UnescapeString(strings.TrimSpace(string(m[1])))
+		}
+		if title == "" {
+			title = date
+		}
+		if title == "" {
+			title = "Post " + strconv.FormatInt(id, 10)
+		}
+
+		posts = append(posts, homepagePost{
+			Date:  date,
+			Title: title,
+			URL:   postPageURL(siteURL+"/feeds", channel, id),
+		})
+	}
+	return posts
 }
