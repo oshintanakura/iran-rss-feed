@@ -334,6 +334,9 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 	publicDir := filepath.Dir(cfg.Output.Dir)
 	siteURL := strings.TrimSuffix(strings.TrimRight(cfg.Output.BaseURL, "/"), "/feeds")
 
+	if err := feed.WriteChannelPages(publicDir, siteURL, channels); err != nil {
+		logger.Error("writing channel pages failed", "error", err)
+	}
 	if err := feed.WriteHomepage(publicDir, siteURL, channels, categories); err != nil {
 		logger.Error("writing homepage failed", "error", err)
 	}

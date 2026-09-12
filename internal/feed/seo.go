@@ -71,6 +71,7 @@ var sitemapTmpl = template.Must(template.New("sitemap").Parse(`<?xml version="1.
   <url><loc>{{.SiteURL}}/</loc></url>
   <url><loc>{{.SiteURL}}/feeds/all.xml</loc></url>
 {{range .Categories}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
+{{end}}{{range .Channels}}  <url><loc>{{$.SiteURL}}/{{.}}.html</loc></url>
 {{end}}{{range .Channels}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
 {{end}}{{range .PostURLs}}  <url><loc>{{.}}</loc></url>
 {{end}}</urlset>
