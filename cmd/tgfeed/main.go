@@ -31,6 +31,9 @@ func run() int {
 	_ = flag.Bool("once", true, "run one cycle and exit (the default and only mode)")
 	dryRunFlag := flag.Bool("dry-run", false, "override config: fetch + report, never call the chat API, never write XML")
 	onlyChannel := flag.String("channel", "", "restrict this run to one channel, for debugging")
+	listChannels := flag.Bool("list-channels", false, "print the configured channel names, one per line, and exit")
+	fetchOnly := flag.Bool("fetch-only", false, "fetch and translate into the store, but skip writing feeds/pages")
+	feedsOnly := flag.Bool("feeds-only", false, "regenerate feeds/pages from the store, skip fetching and translating")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -45,6 +48,17 @@ func run() int {
 	}
 
 	channels := cfg.ChannelNames()
+
+	if *listChannels {
+		for _, ch := range channels {
+			fmt.Println(ch)
+		}
+		return 0
+	}
+	if *fetchOnly && *feedsOnly {
+		logger.Error("startup failed", "error", "--fetch-only and --feeds-only are mutually exclusive")
+		return 1
+	}
 	if *onlyChannel != "" && !slices.Contains(channels, *onlyChannel) {
 		logger.Error("startup failed", "error", fmt.Sprintf("--channel %q is not in config", *onlyChannel))
 		return 1
@@ -76,22 +90,24 @@ func run() int {
 	var attempted, succeeded, totalNew, totalTranslated, totalFailed int
 	remainingBudget := cfg.Runtime.MaxNewPostsPerRun
 
-	for _, ch := range channels {
-		if *onlyChannel != "" && ch != *onlyChannel {
-			continue
-		}
-		attempted++
+	if !*feedsOnly {
+		for _, ch := range channels {
+			if *onlyChannel != "" && ch != *onlyChannel {
+				continue
+			}
+			attempted++
 
-		newCount, translatedCount, failedCount, err := processChannel(ctx, cfg, src, st, translator, ch, &remainingBudget, logger)
-		if err != nil {
-			logger.Error("channel fetch failed", "channel", ch, "error", err)
-			continue
-		}
+			newCount, translatedCount, failedCount, err := processChannel(ctx, cfg, src, st, translator, ch, &remainingBudget, logger)
+			if err != nil {
+				logger.Error("channel fetch failed", "channel", ch, "error", err)
+				continue
+			}
 
-		succeeded++
-		totalNew += newCount
-		totalTranslated += translatedCount
-		totalFailed += failedCount
+			succeeded++
+			totalNew += newCount
+			totalTranslated += translatedCount
+			totalFailed += failedCount
+		}
 	}
 
 	// Feeds are regenerated from whatever is already in the store,
@@ -99,7 +115,7 @@ func run() int {
 	// per-channel fetch failures above.
 	if cfg.Runtime.DryRun {
 		logger.Info("dry run: skipping feed writing")
-	} else {
+	} else if !*fetchOnly {
 		writeFeeds(ctx, cfg, st, channels, logger)
 	}
 

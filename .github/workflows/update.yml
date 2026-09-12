@@ -13,6 +13,11 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  TRANSLATE_API_KEY: ${{ secrets.TRANSLATE_API_KEY }}
+  TRANSLATE_API_BASE_URL: ${{ secrets.TRANSLATE_API_BASE_URL }}
+  TRANSLATE_API_MODEL: ${{ secrets.TRANSLATE_API_MODEL }}
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -24,18 +29,54 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: '1.25' }
       - run: go build -o tgfeed ./cmd/tgfeed
-      - run: ./tgfeed --config config.yaml
-        env:
-          TRANSLATE_API_KEY: ${{ secrets.TRANSLATE_API_KEY }}
-          TRANSLATE_API_BASE_URL: ${{ secrets.TRANSLATE_API_BASE_URL }}
-          TRANSLATE_API_MODEL: ${{ secrets.TRANSLATE_API_MODEL }}
-      - name: commit state and feeds
+
+      # state.db lives on the dedicated `state` branch (see DEBUGGING.md):
+      # one squashed checkpoint commit, force-pushed after every channel,
+      # so a run that dies midway resumes from the last checkpoint.
+      - name: fetch latest state.db from the state branch
         run: |
+          git fetch origin state --quiet || true
+          if git rev-parse --verify --quiet origin/state; then
+            git show origin/state:state.db > state.db
+          fi
+
+      - name: translate channels, checkpoint after each
+        run: |
+          set -u
           git config user.name  "feed-bot"
           git config user.email "feed-bot@users.noreply.github.com"
-          git add state.db public/feeds
+
+          git fetch origin state --quiet || true
+          if git rev-parse --verify --quiet origin/state; then
+            git worktree add /tmp/state origin/state
+          else
+            git worktree add --orphan -b state /tmp/state
+          fi
+
+          for ch in $(./tgfeed --config config.yaml --list-channels); do
+            ./tgfeed --config config.yaml --channel "$ch" --fetch-only || true
+
+            cp state.db /tmp/state/state.db
+            (cd /tmp/state && git add -f state.db)
+            if (cd /tmp/state && git diff --staged --quiet); then
+              continue
+            fi
+            if (cd /tmp/state && git rev-parse --verify --quiet HEAD >/dev/null); then
+              (cd /tmp/state && git commit --amend -m "checkpoint $ch $(date -u +%FT%TZ)" --quiet)
+            else
+              (cd /tmp/state && git commit -m "checkpoint $ch $(date -u +%FT%TZ)" --quiet)
+            fi
+            (cd /tmp/state && git fetch origin state --quiet || true)
+            (cd /tmp/state && (git push origin HEAD:refs/heads/state --force-with-lease || git push origin HEAD:refs/heads/state --force))
+          done
+
+      - name: regenerate feeds and commit
+        run: |
+          ./tgfeed --config config.yaml --feeds-only
+          git add public/feeds
           git diff --staged --quiet || git commit -m "update feeds $(date -u +%FT%TZ)"
           git push
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public

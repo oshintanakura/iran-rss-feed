@@ -3,6 +3,19 @@
 Notes for tracking down why a specific post is missing, stuck, or wrong,
 without guessing.
 
+## Where state.db lives
+
+`state.db` is no longer tracked on `main` — it lives on the dedicated
+`state` branch as a single squashed checkpoint commit that the workflow
+force-pushes after every channel. If a run dies midway, the next run
+resumes from the last checkpoint instead of re-translating everything.
+
+```sh
+# fetch the latest checkpoint for local debugging
+git fetch origin state
+git show origin/state:state.db > state.db
+```
+
 ## Inspect the state database directly
 
 `state.db` is a plain SQLite3 file — the standard `sqlite3` CLI works on
