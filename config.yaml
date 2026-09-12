@@ -62,7 +62,6 @@ translate:
   api_key: ${TRANSLATE_API_KEY}       # required — GH secret, OpenAI-compatible chat API key
   base_url: ${TRANSLATE_API_BASE_URL} # required — GH secret, e.g. https://api.your-provider.example.com
   model: ${TRANSLATE_API_MODEL}       # required — GH secret, the model name your provider expects
-  batch_size: 15                # posts per API call
   max_chars_per_post: 4096      # posts longer than this are skipped, not truncated (4096 = Telegram's own message-length cap)
   target_language: English
   temperature: 0.2

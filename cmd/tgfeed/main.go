@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -192,8 +191,10 @@ func processChannel(
 	return len(newPosts), translatedCount, failedCount, nil
 }
 
-// translatePosts skips over-length posts, batches the rest, and saves
-// every result (translated, skipped-too-long, or failed) to the store.
+// translatePosts skips over-length posts, translates the rest one at a
+// time (translate pass, then a refinement pass against the original —
+// keeping the first attempt if refinement fails), and saves every result
+// (translated, skipped-too-long, or failed) to the store.
 func translatePosts(
 	ctx context.Context,
 	cfg *config.Config,
@@ -202,7 +203,6 @@ func translatePosts(
 	posts []source.Post,
 	logger *slog.Logger,
 ) (translatedCount, failedCount int) {
-	var eligible []source.Post
 	for _, p := range posts {
 		if len(p.Text) > cfg.Translate.MaxCharsPerPost {
 			if err := st.SaveSkippedTooLong(ctx, p); err != nil {
@@ -210,40 +210,34 @@ func translatePosts(
 			}
 			continue
 		}
-		eligible = append(eligible, p)
-	}
-
-	for _, batch := range chunk(eligible, cfg.Translate.BatchSize) {
-		items := make([]translate.Item, len(batch))
-		for i, p := range batch {
-			items[i] = translate.Item{ID: strconv.FormatInt(p.MessageID, 10), Text: p.Text}
-		}
 
 		translateCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.Runtime.TranslateTimeoutSeconds)*time.Second)
-		results, err := translator.Batch(translateCtx, items)
+		first, err := translator.Translate(translateCtx, p.Text)
 		cancel()
 		if err != nil {
-			logger.Error("batch translation failed outright", "channel", batch[0].Channel, "count", len(batch), "error", err)
-			results = map[string]string{}
+			logger.Warn("translation failed, will retry next run", "channel", p.Channel, "message_id", p.MessageID, "error", err)
+			if err := st.SaveFailed(ctx, p); err != nil {
+				logger.Error("saving failed post failed", "channel", p.Channel, "message_id", p.MessageID, "error", err)
+			}
+			failedCount++
+			continue
 		}
 
-		for _, p := range batch {
-			text, ok := results[strconv.FormatInt(p.MessageID, 10)]
-			if !ok || text == "" {
-				if err := st.SaveFailed(ctx, p); err != nil {
-					logger.Error("saving failed post failed", "channel", p.Channel, "message_id", p.MessageID, "error", err)
-				}
-				logger.Warn("translation missing for post, will retry next run", "channel", p.Channel, "message_id", p.MessageID)
-				failedCount++
-				continue
-			}
-			if err := st.SaveTranslated(ctx, p, text); err != nil {
-				logger.Error("saving translated post failed", "channel", p.Channel, "message_id", p.MessageID, "error", err)
-				failedCount++
-				continue
-			}
-			translatedCount++
+		refineCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.Runtime.TranslateTimeoutSeconds)*time.Second)
+		improved, err := translator.Refine(refineCtx, p.Text, first)
+		cancel()
+		if err != nil {
+			logger.Warn("refinement failed, keeping first translation", "channel", p.Channel, "message_id", p.MessageID, "error", err)
+		} else {
+			first = improved
 		}
+
+		if err := st.SaveTranslated(ctx, p, first); err != nil {
+			logger.Error("saving translated post failed", "channel", p.Channel, "message_id", p.MessageID, "error", err)
+			failedCount++
+			continue
+		}
+		translatedCount++
 	}
 
 	return translatedCount, failedCount
@@ -265,21 +259,6 @@ func filterRecent(posts []source.Post, maxAgeDays int) (recent []source.Post, dr
 		recent = append(recent, p)
 	}
 	return recent, dropped
-}
-
-func chunk(posts []source.Post, size int) [][]source.Post {
-	if size <= 0 {
-		size = len(posts)
-	}
-	var chunks [][]source.Post
-	for i := 0; i < len(posts); i += size {
-		end := i + size
-		if end > len(posts) {
-			end = len(posts)
-		}
-		chunks = append(chunks, posts[i:end])
-	}
-	return chunks
 }
 
 func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channels []string, logger *slog.Logger) {

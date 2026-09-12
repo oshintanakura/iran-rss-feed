@@ -27,7 +27,6 @@ type Translate struct {
 	APIKey          string  `yaml:"api_key"`
 	BaseURL         string  `yaml:"base_url"`
 	Model           string  `yaml:"model"`
-	BatchSize       int     `yaml:"batch_size"`
 	MaxCharsPerPost int     `yaml:"max_chars_per_post"`
 	TargetLanguage  string  `yaml:"target_language"`
 	Temperature     float64 `yaml:"temperature"`
@@ -149,9 +148,6 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Source.Mode == "" {
 		cfg.Source.Mode = "web"
-	}
-	if cfg.Translate.BatchSize <= 0 {
-		cfg.Translate.BatchSize = 15
 	}
 	if cfg.Translate.MaxCharsPerPost <= 0 {
 		// 4096 is Telegram's own hard limit on a single message's text

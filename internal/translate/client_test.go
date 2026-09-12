@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,7 +27,7 @@ func writeChoice(w http.ResponseWriter, content string) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-func decodeInputIDs(r *http.Request) []string {
+func decodeMessages(r *http.Request) []string {
 	var req struct {
 		Messages []struct {
 			Role    string `json:"role"`
@@ -34,122 +35,115 @@ func decodeInputIDs(r *http.Request) []string {
 		} `json:"messages"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	var ids []string
+	var contents []string
 	for _, m := range req.Messages {
-		if m.Role != "user" {
-			continue
-		}
-		var posts []struct {
-			ID   string `json:"id"`
-			Text string `json:"text"`
-		}
-		if err := json.Unmarshal([]byte(m.Content), &posts); err == nil {
-			for _, p := range posts {
-				ids = append(ids, p.ID)
-			}
-		}
+		contents = append(contents, m.Content)
 	}
-	return ids
+	return contents
 }
 
-func TestBatch_NormalJSON(t *testing.T) {
+func TestTranslate(t *testing.T) {
+	var userContent string
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		writeChoice(w, `{"1":"Hello","2":"World"}`)
+		msgs := decodeMessages(r)
+		userContent = msgs[len(msgs)-1]
+		writeChoice(w, "Masoud Pezeshkian said hello")
 	})
 
-	result, err := client.Batch(context.Background(), []Item{{ID: "1", Text: "سلام"}, {ID: "2", Text: "دنیا"}})
+	got, err := client.Translate(context.Background(), "مسعود پزشکیان گفت سلام")
 	if err != nil {
-		t.Fatalf("Batch: %v", err)
+		t.Fatalf("Translate: %v", err)
 	}
-	if result["1"] != "Hello" || result["2"] != "World" {
-		t.Fatalf("unexpected result: %+v", result)
+	if got != "Masoud Pezeshkian said hello" {
+		t.Fatalf("unexpected result: %q", got)
+	}
+	if userContent != "مسعود پزشکیان گفت سلام" {
+		t.Fatalf("user message should be the raw post, got %q", userContent)
 	}
 	if client.Calls != 1 {
 		t.Fatalf("want 1 HTTP call, got %d", client.Calls)
 	}
 }
 
-func TestBatch_StripsMarkdownFences(t *testing.T) {
+func TestTranslate_StripsMarkdownFences(t *testing.T) {
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		writeChoice(w, "```json\n{\"1\":\"Hello\"}\n```")
+		writeChoice(w, "```\nHello world\n```")
 	})
 
-	result, err := client.Batch(context.Background(), []Item{{ID: "1", Text: "سلام"}})
+	got, err := client.Translate(context.Background(), "سلام دنیا")
 	if err != nil {
-		t.Fatalf("Batch: %v", err)
+		t.Fatalf("Translate: %v", err)
 	}
-	if result["1"] != "Hello" {
-		t.Fatalf("unexpected result: %+v", result)
+	if got != "Hello world" {
+		t.Fatalf("unexpected result: %q", got)
 	}
 }
 
-func TestBatch_MalformedThenRetrySucceeds(t *testing.T) {
+func TestTranslate_EmptyReplyIsAnError(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeChoice(w, "   ")
+	})
+
+	if _, err := client.Translate(context.Background(), "سلام"); err == nil {
+		t.Fatal("want an error for an empty translation")
+	}
+}
+
+func TestRefine_SendsOriginalAndTranslation(t *testing.T) {
+	var userContent string
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		msgs := decodeMessages(r)
+		userContent = msgs[len(msgs)-1]
+		writeChoice(w, "Masoud Pezeshkian said he will travel tomorrow.")
+	})
+
+	got, err := client.Refine(context.Background(), "مسعود پزشکیان گفت فردا سفر می‌کند", "Masoud said he goes tomorrow")
+	if err != nil {
+		t.Fatalf("Refine: %v", err)
+	}
+	if got != "Masoud Pezeshkian said he will travel tomorrow." {
+		t.Fatalf("unexpected result: %q", got)
+	}
+	if !strings.Contains(userContent, "مسعود پزشکیان گفت فردا سفر می‌کند") || !strings.Contains(userContent, "Masoud said he goes tomorrow") {
+		t.Fatalf("user message should contain both the original and the translation, got %q", userContent)
+	}
+}
+
+func TestTranslate_FailsFastOnHTTP400(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	if _, err := client.Translate(context.Background(), "سلام"); err == nil {
+		t.Fatal("want an error for HTTP 400")
+	}
+	if client.Calls != 1 {
+		t.Fatalf("non-retryable status must not be retried, got %d calls", client.Calls)
+	}
+}
+
+func TestTranslate_RetriesOnHTTP500(t *testing.T) {
 	calls := 0
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if calls == 1 {
-			writeChoice(w, "not json")
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		writeChoice(w, `{"1":"Hello"}`)
-	})
-
-	result, err := client.Batch(context.Background(), []Item{{ID: "1", Text: "سلام"}})
-	if err != nil {
-		t.Fatalf("Batch: %v", err)
-	}
-	if result["1"] != "Hello" {
-		t.Fatalf("unexpected result: %+v", result)
-	}
-	if calls != 2 {
-		t.Fatalf("want exactly 2 calls (initial + one retry with correction hint), got %d", calls)
-	}
-}
-
-func TestBatch_PoisonPostFallsBackToPerPostWithoutLosingTheRest(t *testing.T) {
-	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		ids := decodeInputIDs(r)
-		// Any request that still contains the poison post ("2") returns
-		// garbage; a request for a single good post succeeds.
-		for _, id := range ids {
-			if id == "2" {
-				writeChoice(w, "still not valid json")
-				return
-			}
-		}
-		result := map[string]string{}
-		for _, id := range ids {
-			result[id] = "OK:" + id
-		}
-		b, _ := json.Marshal(result)
-		writeChoice(w, string(b))
-	})
-
-	items := []Item{{ID: "1", Text: "a"}, {ID: "2", Text: "poison"}, {ID: "3", Text: "c"}}
-	result, err := client.Batch(context.Background(), items)
-	if err != nil {
-		t.Fatalf("Batch: %v", err)
-	}
-	if result["1"] != "OK:1" || result["3"] != "OK:3" {
-		t.Fatalf("good posts in the batch should still be translated, got: %+v", result)
-	}
-	if _, ok := result["2"]; ok {
-		t.Fatalf("poison post should be absent from the result (caller marks it SaveFailed), got: %+v", result)
-	}
-}
-
-func TestBatch_RetryableStatusIsRetried(t *testing.T) {
-	// Not exercising the real sleep backoff (2s/8s/32s) in a unit test;
-	// this just confirms a single 200 after we'd see a 500 is handled by
-	// the outer retry-batch-once-then-fallback logic instead of erroring
-	// out immediately as non-retryable would.
-	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest) // non-retryable: fail fast
+		writeChoice(w, "Hello")
 	})
 	client.HTTPClient.Timeout = 2 * time.Second
 
-	_, err := client.tryBatch(context.Background(), []Item{{ID: "1", Text: "a"}})
-	if err == nil {
-		t.Fatalf("want an error for HTTP 400")
+	// The real backoff is 2s/8s/32s; this test only waits out the first
+	// 2-second delay.
+	got, err := client.Translate(context.Background(), "سلام")
+	if err != nil {
+		t.Fatalf("Translate: %v", err)
+	}
+	if got != "Hello" {
+		t.Fatalf("unexpected result: %q", got)
+	}
+	if calls != 2 {
+		t.Fatalf("want 2 calls (500 then success), got %d", calls)
 	}
 }

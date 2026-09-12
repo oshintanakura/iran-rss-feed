@@ -1,5 +1,6 @@
-// Package translate batches posts to an OpenAI-compatible chat
-// completions API and maps replies back onto the posts they came from.
+// Package translate calls an OpenAI-compatible chat completions API to
+// translate Telegram posts from Persian to English, one post at a time,
+// with an optional refinement pass.
 package translate
 
 import (
@@ -14,29 +15,31 @@ import (
 	"time"
 )
 
-const systemPrompt = `You are a professional Persian-to-English translator working on Telegram channel posts.
+const systemPrompt = `Translate Persian Telegram posts to natural English.
 
 Rules:
-- Translate the meaning, not word-for-word. Produce natural English.
+- Translate the full meaning, not word-for-word.
+- Never translate proper nouns: personal names, place names, organization
+  names, and titles. Transliterate them into their common English spellings
+  instead. For example: "مسعود پزشکیان" -> "Masoud Pezeshkian", "آیت‌الله خامنه‌ای" -> "Ayatollah Khamenei".
+  This applies the same way to Arabic names and words that appear in Persian text.
+- Use the same English spelling for the same name every time it appears in a post.
 - Preserve all URLs, @mentions, #hashtags, and numbers exactly as they appear.
-- Preserve paragraph breaks as \n.
+- Preserve paragraph breaks.
 - Do not summarize. Do not add commentary. Do not omit content.
-- Transliterate Persian proper nouns consistently using common English spellings.
 - If a post is already in English, return it unchanged.
 
-Output format:
-Return ONLY a JSON object. Keys are the "id" values from the input. Values are the
-translated English strings. No markdown fences, no explanation, no extra keys.
+Output the translation only — no commentary, no explanations, no markdown.`
 
-Example input:  [{"id":"101","text":"سلام دنیا"},{"id":"102","text":"خبر فوری"}]
-Example output: {"101":"Hello world","102":"Breaking news"}`
+const refinePrompt = `You are improving a Persian-to-English translation of a Telegram post.
 
-// Item is one post to translate, keyed by an opaque caller-chosen id
-// (the caller uses the store's (channel, message_id) to build it).
-type Item struct {
-	ID   string
-	Text string
-}
+Improve the translation below so that:
+- No information, nuance, or tone from the original is lost.
+- It reads as natural English, not translated English.
+- The proper-noun rules from the first pass are kept (names transliterated,
+  not translated; URLs, @mentions, #hashtags, and numbers untouched).
+
+Return ONLY the improved translation — no commentary, no explanations, no markdown.`
 
 // Client talks to an OpenAI-compatible chat completions endpoint.
 type Client struct {
@@ -66,57 +69,34 @@ func NewClient(baseURL, apiKey, model string, temperature float64, timeout time.
 	}
 }
 
-// Batch translates one batch (already sized to batch_size by the caller).
-// Every input id is guaranteed to appear as a key in the result unless it
-// truly could not be translated even individually — in which case it is
-// simply absent, and the caller must treat a missing id as failed.
-func (c *Client) Batch(ctx context.Context, items []Item) (map[string]string, error) {
-	if len(items) == 0 {
-		return map[string]string{}, nil
+// Translate translates one post. An empty translation is returned as an
+// error so callers never store a blank string.
+func (c *Client) Translate(ctx context.Context, text string) (string, error) {
+	content, err := c.call(ctx, systemPrompt, text)
+	if err != nil {
+		return "", err
 	}
-
-	result, err := c.tryBatch(ctx, items)
-	if err == nil {
-		return result, nil
+	content = cleanReply(content)
+	if strings.TrimSpace(content) == "" {
+		return "", fmt.Errorf("model returned an empty translation")
 	}
-	c.Logger.Warn("batch translation failed, retrying once with a correction prompt", "error", err, "count", len(items))
-
-	result, err = c.tryBatchWithRetryHint(ctx, items)
-	if err == nil {
-		return result, nil
-	}
-	c.Logger.Warn("batch translation still invalid after retry, falling back to per-post translation", "error", err, "count", len(items))
-
-	// One poison post must not lose the rest of the batch: fall back to
-	// translating each post individually.
-	merged := make(map[string]string, len(items))
-	for _, item := range items {
-		single, err := c.tryBatch(ctx, []Item{item})
-		if err != nil {
-			c.Logger.Warn("individual translation failed, will retry next run", "id", item.ID, "error", err)
-			continue
-		}
-		if text, ok := single[item.ID]; ok {
-			merged[item.ID] = text
-		}
-	}
-	return merged, nil
+	return content, nil
 }
 
-func (c *Client) tryBatch(ctx context.Context, items []Item) (map[string]string, error) {
-	content, err := c.call(ctx, items, nil)
+// Refine asks the model to improve a first-pass translation against the
+// original. It is best-effort: callers keep the first attempt when it
+// fails.
+func (c *Client) Refine(ctx context.Context, original, translation string) (string, error) {
+	user := fmt.Sprintf("Original Persian post:\n---\n%s\n---\n\nCurrent English translation:\n---\n%s\n---", original, translation)
+	content, err := c.call(ctx, refinePrompt, user)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return parseReply(content)
-}
-
-func (c *Client) tryBatchWithRetryHint(ctx context.Context, items []Item) (map[string]string, error) {
-	content, err := c.call(ctx, items, []string{"Your previous reply was not valid JSON. Return only the JSON object."})
-	if err != nil {
-		return nil, err
+	content = cleanReply(content)
+	if strings.TrimSpace(content) == "" {
+		return "", fmt.Errorf("model returned an empty refinement")
 	}
-	return parseReply(content)
+	return content, nil
 }
 
 type chatMessage struct {
@@ -145,41 +125,17 @@ type chatResponse struct {
 	} `json:"error"`
 }
 
-type inputPost struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-}
-
-// call performs the HTTP round-trip with bounded retries on 429/5xx, and
-// returns the raw assistant message content. extraUserMessages are
-// appended after the main user message (used for the malformed-JSON
-// correction turn).
-func (c *Client) call(ctx context.Context, items []Item, extraUserMessages []string) (string, error) {
-	inputs := make([]inputPost, len(items))
-	totalChars := 0
-	for i, item := range items {
-		inputs[i] = inputPost{ID: item.ID, Text: item.Text}
-		totalChars += len(item.Text)
-	}
-	userJSON, err := json.Marshal(inputs)
-	if err != nil {
-		return "", fmt.Errorf("encoding batch: %w", err)
-	}
-
-	messages := []chatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: string(userJSON)},
-	}
-	for _, extra := range extraUserMessages {
-		messages = append(messages, chatMessage{Role: "user", Content: extra})
-	}
-
+// call performs one chat-completions round-trip with bounded retries on
+// 429/5xx, and returns the raw assistant message content.
+func (c *Client) call(ctx context.Context, system, user string) (string, error) {
 	reqBody := chatRequest{
-		Model:          c.Model,
-		Messages:       messages,
-		Temperature:    c.Temperature,
-		MaxTokens:      maxTokensFor(totalChars),
-		ResponseFormat: &responseFormat{Type: "json_object"},
+		Model: c.Model,
+		Messages: []chatMessage{
+			{Role: "system", Content: system},
+			{Role: "user", Content: user},
+		},
+		Temperature: c.Temperature,
+		MaxTokens:   maxTokensFor(len(user)),
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
@@ -252,20 +208,13 @@ func (c *Client) doRequest(ctx context.Context, body []byte) (string, bool, erro
 	return parsed.Choices[0].Message.Content, false, nil
 }
 
-// parseReply strips optional markdown code fences (models add these even
-// when told not to) and decodes the {"id": "translation"} object.
-func parseReply(content string) (map[string]string, error) {
+// cleanReply strips markdown code fences and surrounding whitespace.
+func cleanReply(content string) string {
 	cleaned := strings.TrimSpace(content)
 	cleaned = strings.TrimPrefix(cleaned, "```json")
 	cleaned = strings.TrimPrefix(cleaned, "```")
 	cleaned = strings.TrimSuffix(cleaned, "```")
-	cleaned = strings.TrimSpace(cleaned)
-
-	var result map[string]string
-	if err := json.Unmarshal([]byte(cleaned), &result); err != nil {
-		return nil, fmt.Errorf("reply was not a valid JSON object: %w", err)
-	}
-	return result, nil
+	return strings.TrimSpace(cleaned)
 }
 
 // maxTokensFor sizes the output budget to roughly 4 * input chars / 3, a

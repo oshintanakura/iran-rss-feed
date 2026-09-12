@@ -180,7 +180,7 @@ cmd/tgfeed/main.go      — flag parsing, config load, wiring, run one cycle, ex
 internal/config         — struct + loader + ${ENV} expansion + validation
 internal/source         — Source interface + webSource + mtprotoSource
 internal/store          — sqlite: schema, seen-check, insert, query for feed build
-internal/translate      — chat API batching client
+internal/translate      — chat API client (per-post translation + refinement pass)
 internal/feed           — Atom XML generation
 ```
 
