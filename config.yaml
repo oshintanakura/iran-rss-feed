@@ -37,7 +37,6 @@ channels:                       # usernames, no @ and no t.me/, each with a cate
   - { name: iranstrategicnarratives, category: analysis }
   - { name: sadegh_alhosseini, category: analysis }
   - { name: Ghabl_enghelab, category: analysis }
-  - { name: aqvalanam, category: analysis }
   - { name: mamlekate, category: news }
   - { name: javadmogoei, category: analysis }
   - { name: Kayhan_online, category: news }

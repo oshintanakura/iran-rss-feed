@@ -297,13 +297,16 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 
 	// One standalone page per translated post ever stored (not just what's
 	// in the feed window), so feed item links have somewhere permanent to
-	// point. Never pruned — old pages just stay as an archive.
+	// point. Never pruned — old pages just stay as an archive. Restricted
+	// to configured channels so a channel removed from the config stops
+	// getting new pages (its committed pages are removed separately).
 	allItems, err := st.AllTranslated(ctx)
 	if err != nil {
 		logger.Error("reading all translated posts for post pages failed", "error", err)
 		return
 	}
-	if err := feed.WritePostPages(cfg.Output.Dir, allItems, opts); err != nil {
+	siteItems := filterToChannels(allItems, channels)
+	if err := feed.WritePostPages(cfg.Output.Dir, siteItems, opts); err != nil {
 		logger.Error("writing post pages failed", "error", err)
 	}
 
@@ -322,9 +325,25 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 	if err := feed.WriteRobotsTxt(publicDir, siteURL); err != nil {
 		logger.Error("writing robots.txt failed", "error", err)
 	}
-	if err := feed.WriteSitemap(publicDir, siteURL, channels, categories, allItems); err != nil {
+	if err := feed.WriteSitemap(publicDir, siteURL, channels, categories, siteItems); err != nil {
 		logger.Error("writing sitemap.xml failed", "error", err)
 	}
+}
+
+// filterToChannels keeps only items whose channel is in the configured
+// list.
+func filterToChannels(items []store.Item, channels []string) []store.Item {
+	allowed := make(map[string]bool, len(channels))
+	for _, ch := range channels {
+		allowed[ch] = true
+	}
+	var kept []store.Item
+	for _, it := range items {
+		if allowed[it.Channel] {
+			kept = append(kept, it)
+		}
+	}
+	return kept
 }
 
 // writeCategoryFeeds merges each category's channels into one feed and
