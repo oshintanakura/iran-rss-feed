@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">
   <title>All channels</title>
   <id>https://oshintanakura.github.io/iran-rss-feed/feeds/all.xml</id>
-  <updated>2026-09-12T20:05:48Z</updated>
+  <updated>2026-09-12T20:16:18Z</updated>
   <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/all.xml"></link>
+  <entry>
+    <title>[FarsNA] Why isn&#39;t the government taxing empty homes?🔹Despite identifying around 2…</title>
+    <updated>2026-09-12T20:11:05Z</updated>
+    <id>https://t.me/FarsNA/461662</id>
+    <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/FarsNA/461662.html" rel="alternate"></link>
+    <summary type="html">&lt;p&gt;&lt;em&gt;Machine-translated from &lt;a href=&#34;https://t.me/FarsNA/461662&#34;&gt;the original Telegram post&lt;/a&gt;.&lt;/em&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @FarsNA&lt;/p&gt;Why isn&amp;#39;t the government taxing empty homes?🔹Despite identifying around 2 million vacant homes, revenue from the empty homes tax in the year 1404 amounted to less than 10 billion tomans, and collection of this tax in the first 4 months of 1405 has been reported as zero.🔹Users have launched a campaign on Fars-My, calling for transparency on the number of homes identified, the tax assessed, and the amount actually collected, as well as an investigation into why this law is being so poorly enforced.🔗 If you too want the empty homes tax law to be seriously enforced, join this demand by supporting the campaign. @Farsnews_My</summary>
+    <author>
+      <name>FarsNA</name>
+    </author>
+  </entry>
   <entry>
     <title>[FarsNA] Israel has violated the agreement with the Lebanese government 7,700 times…</title>
     <updated>2026-09-12T19:58:01Z</updated>
