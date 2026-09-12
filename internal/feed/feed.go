@@ -107,10 +107,18 @@ func titleFor(translated string, messageID int64) string {
 	return strings.TrimSpace(cut) + "…"
 }
 
-// bodyFor renders the feed item's body: a "Source: @channel" line, the
-// translated text, and (if enabled) the Persian original.
+// bodyFor renders the feed item's body: a machine-translation disclaimer
+// linking back to the original Telegram post, a "Source: @channel" line,
+// the translated text, and (if enabled) the Persian original.
 func bodyFor(it store.Item, opts Options) string {
 	var b strings.Builder
+	b.WriteString(`<p><em>Machine translation`)
+	if it.URL != "" {
+		b.WriteString(` of <a href="`)
+		b.WriteString(html.EscapeString(it.URL))
+		b.WriteString(`">the original Telegram post</a>`)
+	}
+	b.WriteString(`.</em></p>`)
 	b.WriteString(`<p><strong>Source:</strong> @`)
 	b.WriteString(html.EscapeString(it.Channel))
 	b.WriteString(`</p>`)
@@ -147,13 +155,14 @@ var postPageTmpl = template.Must(template.New("post").Parse(`<!doctype html>
 <title>{{.Title}}</title>
 <style>
   body { font-family: system-ui, -apple-system, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; }
-  .meta { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta, .disclaimer { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
   a { color: #0645ad; }
 </style>
 </head>
 <body>
 <p class="meta">Source: <strong>@{{.Channel}}</strong> &middot; {{.PostedAt}}</p>
-<div>{{.Body}}</div>
+{{if .URL}}<p class="disclaimer"><em>Machine translation of <a href="{{.URL}}">the original Telegram post</a>.</em></p>
+{{end}}<div>{{.Body}}</div>
 </body>
 </html>
 `))
@@ -162,6 +171,7 @@ type postPageData struct {
 	Title    string
 	Channel  string
 	PostedAt string
+	URL      string
 	Body     template.HTML
 }
 
@@ -175,6 +185,7 @@ func WritePostPages(dir string, items []store.Item, opts Options) error {
 			Title:    titleFor(it.Translated, it.MessageID),
 			Channel:  it.Channel,
 			PostedAt: it.PostedAt.UTC().Format("2006-01-02 15:04 UTC"),
+			URL:      it.URL,
 			Body:     template.HTML(translatedContent(it, opts)), //nolint:gosec // content is HTML-escaped by translatedContent before this point
 		}
 
