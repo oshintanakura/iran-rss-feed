@@ -40,6 +40,11 @@ channels:                       # usernames, no @ and no t.me/, each with a cate
   - { name: aqvalanam, category: analysis }
   - { name: mamlekate, category: news }
   - { name: javadmogoei, category: analysis }
+  - { name: Kayhan_online, category: news }
+  - { name: eslahatnews, category: news }
+  - { name: jebheheslahat, category: news }
+  - { name: mersadcss, category: news }
+  - { name: FarsNA, category: news }
   # Channels above marked "web preview disabled" are real, valid
   # usernames, but mode: web can't fetch them — see "A channel isn't
   # producing any posts" in the README. Left in the list so they pick
