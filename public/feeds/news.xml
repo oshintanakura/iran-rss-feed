@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Category: News</title>
+  <title>Iran RSS - News</title>
   <id>https://oshintanakura.github.io/iran-rss-feed/feeds/news.xml</id>
-  <updated>2026-09-12T20:16:18Z</updated>
+  <updated>2026-09-12T20:29:09Z</updated>
   <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/news.xml"></link>
+  <entry>
+    <title>[FarsNA] Araghchi discussed border issues with the Iraqi Foreign Minister&#xA;🔹In this…</title>
+    <updated>2026-09-12T20:21:03Z</updated>
+    <id>https://t.me/FarsNA/461663</id>
+    <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/FarsNA/461663.html" rel="alternate"></link>
+    <summary type="html">&lt;p&gt;&lt;em&gt;Machine-translated from &lt;a href=&#34;https://t.me/FarsNA/461663&#34;&gt;the original Telegram post&lt;/a&gt;.&lt;/em&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @FarsNA&lt;/p&gt;Araghchi discussed border issues with the Iraqi Foreign Minister&lt;br&gt;🔹In this call, the two sides noted the most important issues in Iran-Iraq relations and emphasized the state of stability and security along the two countries&amp;#39; borders.@Farsna</summary>
+    <author>
+      <name>FarsNA</name>
+    </author>
+  </entry>
   <entry>
     <title>[FarsNA] Why isn&#39;t the government taxing empty homes?🔹Despite identifying around 2…</title>
     <updated>2026-09-12T20:11:05Z</updated>
