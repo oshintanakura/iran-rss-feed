@@ -357,7 +357,7 @@ func writeCategoryFeeds(ctx context.Context, cfg *config.Config, st *store.Store
 		if len(items) > cfg.Output.MaxItemsPerFeed {
 			items = items[:cfg.Output.MaxItemsPerFeed]
 		}
-		if err := feed.Write(cfg.Output.Dir, cat, "Category: "+strings.ToUpper(cat[:1])+cat[1:], items, opts); err != nil {
+		if err := feed.Write(cfg.Output.Dir, cat, "Iran RSS - "+strings.ToUpper(cat[:1])+cat[1:], items, opts); err != nil {
 			logger.Error("writing category feed failed", "category", cat, "error", err)
 		}
 	}
