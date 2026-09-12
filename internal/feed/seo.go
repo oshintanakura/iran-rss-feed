@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"iran-rss-feed/internal/store"
 )
 
 // aiCrawlerUserAgents are named explicitly (rather than relying only on
@@ -69,20 +71,22 @@ var sitemapTmpl = template.Must(template.New("sitemap").Parse(`<?xml version="1.
   <url><loc>{{.SiteURL}}/</loc></url>
   <url><loc>{{.SiteURL}}/feeds/all.xml</loc></url>
 {{range .Channels}}  <url><loc>{{$.SiteURL}}/feeds/{{.}}.xml</loc></url>
+{{end}}{{range .PostURLs}}  <url><loc>{{.}}</loc></url>
 {{end}}</urlset>
 `))
 
 type sitemapData struct {
 	SiteURL  string
 	Channels []string
+	PostURLs []string
 }
 
 // WriteSitemap writes a sitemap.xml listing the homepage, the combined
-// feed, and every per-channel feed — search engines follow the feeds
-// from there to discover individual post pages, so those aren't listed
-// directly (there's no bound on how many accumulate over time).
-// siteURL must be non-empty; the sitemap is meaningless without it.
-func WriteSitemap(publicDir, siteURL string, channels []string) error {
+// feed, every per-channel feed, and every standalone post page. Post
+// pages are listed directly so crawlers have a discovery path that
+// doesn't depend on following XML feeds. siteURL must be non-empty; the
+// sitemap is meaningless without it.
+func WriteSitemap(publicDir, siteURL string, channels []string, posts []store.Item) error {
 	if siteURL == "" {
 		return nil
 	}
@@ -91,13 +95,20 @@ func WriteSitemap(publicDir, siteURL string, channels []string) error {
 		return fmt.Errorf("creating public dir %s: %w", publicDir, err)
 	}
 
+	postURLs := make([]string, 0, len(posts))
+	for _, p := range posts {
+		// postPageURL expects the feeds base URL; siteURL is the site
+		// root, and posts live under <root>/feeds/posts/...
+		postURLs = append(postURLs, postPageURL(siteURL+"/feeds", p.Channel, p.MessageID))
+	}
+
 	final := filepath.Join(publicDir, "sitemap.xml")
 	tmp := final + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
 		return fmt.Errorf("creating %s: %w", tmp, err)
 	}
-	data := sitemapData{SiteURL: siteURL, Channels: sortedChannels(channels)}
+	data := sitemapData{SiteURL: siteURL, Channels: sortedChannels(channels), PostURLs: postURLs}
 	if err := sitemapTmpl.Execute(f, data); err != nil {
 		f.Close()
 		return fmt.Errorf("rendering %s: %w", final, err)

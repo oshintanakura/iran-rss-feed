@@ -330,7 +330,7 @@ func writeFeeds(ctx context.Context, cfg *config.Config, st *store.Store, channe
 	if err := feed.WriteRobotsTxt(publicDir, siteURL); err != nil {
 		logger.Error("writing robots.txt failed", "error", err)
 	}
-	if err := feed.WriteSitemap(publicDir, siteURL, channels); err != nil {
+	if err := feed.WriteSitemap(publicDir, siteURL, channels, allItems); err != nil {
 		logger.Error("writing sitemap.xml failed", "error", err)
 	}
 }
