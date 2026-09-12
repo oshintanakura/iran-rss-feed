@@ -112,13 +112,13 @@ func titleFor(translated string, messageID int64) string {
 // the translated text, and (if enabled) the Persian original.
 func bodyFor(it store.Item, opts Options) string {
 	var b strings.Builder
-	b.WriteString(`<p><em>Machine translation`)
 	if it.URL != "" {
-		b.WriteString(` of <a href="`)
+		b.WriteString(`<p><em>Machine-translated from <a href="`)
 		b.WriteString(html.EscapeString(it.URL))
-		b.WriteString(`">the original Telegram post</a>`)
+		b.WriteString(`">the original Telegram post</a>.</em></p>`)
+	} else {
+		b.WriteString(`<p><em>This is a machine translation.</em></p>`)
 	}
-	b.WriteString(`.</em></p>`)
 	b.WriteString(`<p><strong>Source:</strong> @`)
 	b.WriteString(html.EscapeString(it.Channel))
 	b.WriteString(`</p>`)
@@ -161,7 +161,8 @@ var postPageTmpl = template.Must(template.New("post").Parse(`<!doctype html>
 </head>
 <body>
 <p class="meta">Source: <strong>@{{.Channel}}</strong> &middot; {{.PostedAt}}</p>
-{{if .URL}}<p class="disclaimer"><em>Machine translation of <a href="{{.URL}}">the original Telegram post</a>.</em></p>
+{{if .URL}}<p class="disclaimer"><em>Machine-translated from <a href="{{.URL}}">the original Telegram post</a>.</em></p>
+{{else}}<p class="disclaimer"><em>This is a machine translation.</em></p>
 {{end}}<div>{{.Body}}</div>
 </body>
 </html>
