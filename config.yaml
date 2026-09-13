@@ -45,6 +45,7 @@ channels:                       # usernames, no @ and no t.me/, each with a cate
   - { name: mersadcss, category: news }
   - { name: FarsNA, category: news }
   - { name: ghalibaf, category: news }
+  - { name: sepah, category: news }
   # Channels above marked "web preview disabled" are real, valid
   # usernames, but mode: web can't fetch them — see "A channel isn't
   # producing any posts" in the README. Left in the list so they pick
