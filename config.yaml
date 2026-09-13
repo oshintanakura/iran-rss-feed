@@ -29,7 +29,7 @@ channels:                       # usernames, no @ and no t.me/, each with a cate
   - { name: gpttir, category: analysis }
   - { name: irandarhalegozar, category: analysis }  # web preview disabled on this channel, see note below
   - { name: abdiabbas, category: analysis }
-  - { name: ofogh_iran, category: news }
+  - { name: ofogh_iran, category: analysis }         # web preview disabled on this channel, see note below
   - { name: mmaljoo, category: analysis }
   - { name: Soroushdabbagh_Official, category: analysis }
   - { name: VahidOnline, category: news }
