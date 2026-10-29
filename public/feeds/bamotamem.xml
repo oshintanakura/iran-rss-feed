@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">
   <title>bamotamem</title>
   <id>https://oshintanakura.github.io/iran-rss-feed/feeds/bamotamem.xml</id>
-  <updated>2026-10-29T12:27:09Z</updated>
+  <updated>2026-10-29T22:33:41Z</updated>
   <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/bamotamem.xml"></link>
   <entry>
     <title>[bamotamem] I usually record my exercises under the lessons themselves, like the other…</title>
@@ -69,16 +69,6 @@
     <id>https://t.me/bamotamem/580</id>
     <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/bamotamem/580.html" rel="alternate"></link>
     <summary type="html">&lt;p&gt;&lt;em&gt;Machine-translated from &lt;a href=&#34;https://t.me/bamotamem/580&#34;&gt;the original Telegram post&lt;/a&gt;.&lt;/em&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @bamotamem&lt;/p&gt;No winner believes in luck. Nietzsche</summary>
-    <author>
-      <name>bamotamem</name>
-    </author>
-  </entry>
-  <entry>
-    <title>[bamotamem] Large World Models (LWMs)&#xA;&#xA;This conversation I had with ChatGPT isn&#39;t an ideal…</title>
-    <updated>2026-10-14T17:49:35Z</updated>
-    <id>https://t.me/bamotamem/579</id>
-    <link href="https://oshintanakura.github.io/iran-rss-feed/feeds/posts/bamotamem/579.html" rel="alternate"></link>
-    <summary type="html">&lt;p&gt;&lt;em&gt;Machine-translated from &lt;a href=&#34;https://t.me/bamotamem/579&#34;&gt;the original Telegram post&lt;/a&gt;.&lt;/em&gt;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Source:&lt;/strong&gt; @bamotamem&lt;/p&gt;Large World Models (LWMs)&lt;br&gt;&lt;br&gt;This conversation I had with ChatGPT isn&amp;#39;t an ideal example — it&amp;#39;s even a bit misleading.&lt;br&gt;&lt;br&gt;But it can, to some extent, illustrate the difference between a language model and a world model.&lt;br&gt;&lt;br&gt;The current wave of AI will presumably die down once the current bubble bursts (and of course its amazing achievements and capabilities will stay with us).&lt;br&gt;&lt;br&gt;In the next wave, we&amp;#39;ll be dealing with large models of the world — LWMs, or Large World Models — that have a better grasp of what&amp;#39;s possible and impossible in the physical world.&lt;br&gt;&lt;br&gt;Of course, even now, the models Tesla uses in the automotive industry and Palantir uses in warfare are of the World Model variety. But even so — whether in terms of the technology and system architecture, or in terms of commercial and widespread access — we&amp;#39;re still a very long way from &amp;#34;artificial intelligence capable of understanding the physical world.&amp;#34;&lt;br&gt;&lt;br&gt;This gap — contrary to all the hype — isn&amp;#39;t just a matter of scale.&lt;br&gt;&lt;br&gt;Link to this piece on my site</summary>
     <author>
       <name>bamotamem</name>
     </author>
